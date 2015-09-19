@@ -1,0 +1,89 @@
+clear;
+close;
+PtM=30;
+PtP=20;
+Fc=850;
+N=1000; % tiempo de simulacion
+M=30;   % Numero de Moviles
+C=M-10; % Numero de Canales
+color='k';
+t=1:N;
+handover=zeros(1,M);% por usuario en un instante N de tiempo
+PotServidora=zeros(1,M);%% por usuario en un instante N de tiempo
+I=zeros(1,M);%% por usuario en un instante N de tiempo
+SIR=zeros(1,M);%% por usuario en un instante N de tiempo
+NoHO=zeros(1,N);% por todos los usuario en un instante N de tiempo
+PotPormedio=zeros(1,N);%por todos los usuario en un instante N de tiempo
+IPromedio=zeros(1,N);%por todos los usuario en un instante N de tiempo
+SIRPromedio=zeros(1,N);%por todos los usuario en un instante N de tiempo
+
+Canales=zeros(1,M-10);
+MacroCelda = struct('id',0,'position_x',0,'position_y',0,'Canales',Canales);
+PicoCelda = struct('id',0,'position_x',200,'position_y',200,'Canales',Canales);
+
+bs = rsmak('circle',500,[MacroCelda.position_x,MacroCelda.position_x]);
+bs2 = rsmak('circle',50,[PicoCelda.position_x,PicoCelda.position_x]);
+fnplt (bs,'b'), axis square;
+hold on
+fnplt (bs2,'b'), axis square;
+
+M1 (M,N) = struct ('id',0,'position_x',0,'position_y',0,'PrS',0,'PrN',0,'CellID',0,'CANAL',0);
+
+    for i=1:N
+        for j=1:M
+            if (i==1)
+                M1(j,i).CellID=0;
+                if(j<C+1)
+                M1(j,i).CANAL=j;
+                end
+                MacroCelda.Canales=ones(1,C);
+            end
+                 M1(j,i).id=j;
+               % [M1(j,i).position_x,M1(j,i).position_y]=RandomWalk (M1(j,1:N),i);%Modelo de Movilidad
+                 [M1(j,i).position_x,M1(j,i).position_y]=RandomDir (M1(j,1:N),i,j);%Modelo de Movilidad
+                  
+                Ppico(j,i)=Potencia_recibida_indoor(200,200,PtP,Fc,M1(j,i).position_x,M1(j,i).position_y);
+                Pmacro(j,i)=Potencia_recibida_outdoor(0,0,PtM,Fc,M1(j,i).position_x,M1(j,i).position_y);
+                M1(j,i).PrS=max(Pmacro(j,i),Ppico(j,i));
+                M1(j,i).PrN=min(Pmacro(j,i),Ppico(j,i));
+                
+               % [M1(j,i).CANAL,MacroCelda.Canales]= AsigCanal(MacroCelda.Canales);
+                
+                if i>1
+                [handover(j), M1(j,i).CellID, M1(j,i).CANAL, MacroCelda.Canales, PicoCelda.Canales] = function_handover(Pmacro(j,i), Ppico(j,i), 0, i,M1(j,i-1).CellID, MacroCelda.Canales, PicoCelda.Canales, M1(j,i-1).CANAL);
+                end
+                PotServidora(j)=M1(j,i).PrS;
+                if (MacroCelda.Canales(M1(j,i).CANAL)==1 & PicoCelda.Canales(M1(j,i).CANAL)==1)
+              %  
+                 I(j)=M1(j,i).PrN;
+                else
+                    I(j)=-80;
+                end
+                SIR(j)=M1(j,i).PrS-I(j);
+         end
+                NoHO(i)=sum(handover);
+                PotPormedio(i)=mean(PotServidora);    
+                IPromedio(i)=mean(I);
+                SIRPromedio(i)=mean(SIR);
+                x(i)=M1(3,i).position_x;
+                y(i)=M1(3,i).position_y;
+
+                if (Pmacro(3,i)>=Ppico(3,i)) 
+                color='k';
+                else
+                    color='g';
+                end
+                %comet(x,y)
+                    plot(x,y,'color',color,'EraseMode', 'none')
+                    
+                     % plot(t,NoHO,'color',color,'EraseMode', 'none')
+                    if (handover(3)==1)
+                        HO = rsmak('circle',5,[M1(3,i).position_x,M1(3,i).position_y]);
+                        fnplt (HO,'b'), axis square;
+                    end
+
+                drawnow;
+                pause(0.000001);
+    end
+
+
